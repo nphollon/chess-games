@@ -93,14 +93,35 @@ def save_game(game_json, cursor):
     return game_record[0]
 
 
-def save_analysis(game_json, game_id, cursor):
-    pass
+def save_analysis(game_json, game_id, connection):
+    cursor = connection.cursor()
+    cursor.execute("SELECT id FROM analysis WHERE game_id=%s", (game_id,))
+    if cursor.fetchone() is not None:
+        return
 
-def parse_json_entry(game_json, cursor):
-    game_id = save_game(game_json, cursor)
+    # TODO duplicated :-|
+    if player_name == game_json["players"]["white"]["user"]["id"]:
+        color = "white"
+    else:
+        color = "black"
+
+    player_stats = game_json["players"][color]["analysis"]
+    inaccuracies = player_stats["inaccuracy"]
+    mistakes = player_stats["mistake"]
+    blunders = player_stats["blunder"]
+    average_centipawn_loss = player_stats["acpl"]
+    analysis = json.dumps(game_json["analysis"])
+
+    cursor.execute("INSERT INTO analysis (game_id, inaccuracies, mistakes, blunders, average_centipawn_loss, analysis) values (%s, %s, %s, %s, %s, %s)", (game_id, inaccuracies, mistakes, blunders, average_centipawn_loss, analysis))
+
+
+def parse_json_entry(game_json, connection):
+    game_id = save_game(game_json, connection.cursor())
 
     if "analysis" in game_json:
-        save_analysis(game_json, game_id, cursor)
+        save_analysis(game_json, game_id, connection)
+
+    connection.commit()
 
 
 # time_remaining = the last or second-to-last %clk HH:MM:SS annotation in pgn
@@ -112,8 +133,6 @@ if __name__ == "__main__":
     try:
         with open("all-games.ndjson") as file:
             for line in file:
-                game_id = parse_json_entry(json.loads(line), connection.cursor())
-
-                connection.commit()
+                game_id = parse_json_entry(json.loads(line), connection)
     finally:
         connection.close()
