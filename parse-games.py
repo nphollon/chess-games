@@ -1,5 +1,13 @@
-import json
 import MySQLdb
+import json
+import requests
+
+# TODO
+# 1. Fetch games from Python script
+# 2. Incremental fetch
+# 3. Parameterize player name
+# 4. CL interface - clean, init, fetch
+# 5. Front-end??
 
 player_name = "pigeonpal"
 db_name = "chess_games"
@@ -132,12 +140,39 @@ def parse_json_entry(game_json, cursor):
 
 
 if __name__ == "__main__":
+    headers = {
+        'Accept': 'application/x-ndjson',
+        'Authorization': f'Bearer {lichess_api_token}'
+    }
+
+    url = f"https://lichess.org/api/games/user/{player_name}"
+    
+    params = {
+        'rated': 'true',
+        'perfType': 'ultraBullet,bullet,blitz,rapid,classical,correspondence',
+        'pgnInJson': 'true',
+        'clocks': 'true',
+        'evals': 'true',
+        'opening': 'true'
+    }
+
+    response = requests.get(url, params, headers=headers)
+
     connection = MySQLdb.connect(host='localhost', db=db_name, user=db_user)
 
     try:
-        with open("all-games.ndjson") as file:
-            for line in file:
-                parse_json_entry(json.loads(line), connection.cursor())
+        line = ""
+        game_count = 0
+        for chunk in response.iter_content(chunk_size=128):
+            line += chunk.decode("utf-8")
+
+            # assume at most one newline
+            if '\n' in line:
+                linesplit = line.split("\n")
+                parse_json_entry(json.loads(linesplit[0]), connection.cursor())
                 connection.commit()
+                game_count += 1
+                line = linesplit[1]
     finally:
         connection.close()
+        print(f'{game_count} games downloaded')
