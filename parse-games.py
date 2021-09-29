@@ -33,7 +33,9 @@ def save_opening(opening_json, cursor):
         if (len(opening_names) == 1):
             cursor.execute("INSERT INTO opening (eco, name) VALUES (%s,%s)", (eco, opening_names[0]))
         else:
-            cursor.execute("INSERT INTO opening (eco, name, variation) VALUES (%s,%s,%s)", (eco, opening_names[0], opening_names[1]))
+            cursor.execute("INSERT INTO opening (eco, name, variation) VALUES (%s,%s,%s)", \
+                (eco, opening_names[0], opening_names[1]))
+
         cursor.execute("SELECT id FROM opening WHERE eco=%s", (eco,))
         opening_record = cursor.fetchone()
 
@@ -85,7 +87,12 @@ def save_game(game_json, cursor):
         
         opening_id = save_opening(game_json["opening"], cursor)
 
-        cursor.execute("INSERT INTO game (lichess_id, datetime, color, format_id, result, result_detail, rating, provisional, rating_change, opponent_name, opponent_rating, opening_id, ply_length, pgn) VALUES (%s, FROM_UNIXTIME(%s), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", (lichess_id, datetime, color, format_id, result, result_detail, rating, provisional, rating_change, opponent_name, opponent_rating, opening_id, ply_length, pgn))
+        cursor.execute('''INSERT INTO game 
+            (lichess_id, datetime, color, format_id, result, result_detail, rating,
+            provisional, rating_change, opponent_name, opponent_rating, opening_id, ply_length, pgn) 
+            VALUES (%s, FROM_UNIXTIME(%s), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
+            (lichess_id, datetime, color, format_id, result, result_detail, rating, \
+            provisional, rating_change, opponent_name, opponent_rating, opening_id, ply_length, pgn))
 
         cursor.execute("SELECT id FROM game where lichess_id=%s", (lichess_id,))
         game_record = cursor.fetchone()
@@ -93,8 +100,7 @@ def save_game(game_json, cursor):
     return game_record[0]
 
 
-def save_analysis(game_json, game_id, connection):
-    cursor = connection.cursor()
+def save_analysis(game_json, game_id, cursor):
     cursor.execute("SELECT id FROM analysis WHERE game_id=%s", (game_id,))
     if cursor.fetchone() is not None:
         return
@@ -112,20 +118,18 @@ def save_analysis(game_json, game_id, connection):
     average_centipawn_loss = player_stats["acpl"]
     analysis = json.dumps(game_json["analysis"])
 
-    cursor.execute("INSERT INTO analysis (game_id, inaccuracies, mistakes, blunders, average_centipawn_loss, analysis) values (%s, %s, %s, %s, %s, %s)", (game_id, inaccuracies, mistakes, blunders, average_centipawn_loss, analysis))
+    cursor.execute('''INSERT INTO analysis
+        (game_id, inaccuracies, mistakes, blunders, average_centipawn_loss, analysis)
+        VALUES (%s, %s, %s, %s, %s, %s)''', \
+        (game_id, inaccuracies, mistakes, blunders, average_centipawn_loss, analysis))
 
 
-def parse_json_entry(game_json, connection):
-    game_id = save_game(game_json, connection.cursor())
+def parse_json_entry(game_json, cursor):
+    game_id = save_game(game_json, cursor)
 
     if "analysis" in game_json:
-        save_analysis(game_json, game_id, connection)
+        save_analysis(game_json, game_id, cursor)
 
-    connection.commit()
-
-
-# time_remaining = the last or second-to-last %clk HH:MM:SS annotation in pgn
-# analysis table
 
 if __name__ == "__main__":
     connection = MySQLdb.connect(host='localhost', db=db_name, user=db_user)
@@ -133,6 +137,7 @@ if __name__ == "__main__":
     try:
         with open("all-games.ndjson") as file:
             for line in file:
-                game_id = parse_json_entry(json.loads(line), connection)
+                parse_json_entry(json.loads(line), connection.cursor())
+                connection.commit()
     finally:
         connection.close()

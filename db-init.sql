@@ -28,7 +28,6 @@ CREATE TABLE IF NOT EXISTS game
 , opponent_name VARCHAR(80)
 , opponent_rating SMALLINT UNSIGNED
 , opening_id INTEGER
-, time_remaining TIME
 , ply_length SMALLINT UNSIGNED
 , moves TEXT
 , pgn TEXT
