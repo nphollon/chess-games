@@ -3,15 +3,10 @@ import json
 import requests
 
 # TODO
-# 1. Fetch games from Python script
-# 2. Incremental fetch
-# 3. Parameterize player name
-# 4. CL interface - clean, init, fetch
-# 5. Front-end??
+# 1. Incremental fetch
+# 2. CL interface - clean, init, fetch
+# 3. Front-end??
 
-player_name = "pigeonpal"
-db_name = "chess_games"
-db_user = "local"
 
 def save_time_format(game_json, cursor):
     speed = game_json["speed"]
@@ -49,7 +44,7 @@ def save_opening(opening_json, cursor):
 
     return opening_record[0]
 
-def save_game(game_json, cursor):
+def save_game(player_name, game_json, cursor):
     lichess_id = game_json["id"]
 
     cursor.execute("SELECT id FROM game where lichess_id=%s", (lichess_id,))
@@ -108,7 +103,7 @@ def save_game(game_json, cursor):
     return game_record[0]
 
 
-def save_analysis(game_json, game_id, cursor):
+def save_analysis(player_name, game_json, game_id, cursor):
     cursor.execute("SELECT id FROM analysis WHERE game_id=%s", (game_id,))
     if cursor.fetchone() is not None:
         return
@@ -132,20 +127,22 @@ def save_analysis(game_json, game_id, cursor):
         (game_id, inaccuracies, mistakes, blunders, average_centipawn_loss, analysis))
 
 
-def parse_json_entry(game_json, cursor):
-    game_id = save_game(game_json, cursor)
+def parse_json_entry(player_name, game_json, cursor):
+    game_id = save_game(player_name, game_json, cursor)
 
     if "analysis" in game_json:
-        save_analysis(game_json, game_id, cursor)
+        save_analysis(player_name, game_json, game_id, cursor)
 
 
-if __name__ == "__main__":
+def fetch_games(username, api_token=None):
     headers = {
         'Accept': 'application/x-ndjson',
-        'Authorization': f'Bearer {lichess_api_token}'
     }
 
-    url = f"https://lichess.org/api/games/user/{player_name}"
+    if api_token is not None:
+        headers['Authorization'] = "Bearer " + api_token
+
+    url = "https://lichess.org/api/games/user/" + username
     
     params = {
         'rated': 'true',
@@ -156,7 +153,24 @@ if __name__ == "__main__":
         'opening': 'true'
     }
 
-    response = requests.get(url, params, headers=headers)
+    return requests.get(url, params, headers=headers)
+
+
+
+def get_params():
+    with open('config.json') as f:
+        return json.loads(f.read())
+
+
+
+if __name__ == "__main__":
+    params = get_params()
+    username = params['lichess_username']
+    api_token = params['lichess_api_token']
+    db_name = params['db_name']
+    db_user = params['db_user']
+
+    response = fetch_games(username, api_token)
 
     connection = MySQLdb.connect(host='localhost', db=db_name, user=db_user)
 
@@ -169,7 +183,8 @@ if __name__ == "__main__":
             # assume at most one newline
             if '\n' in line:
                 linesplit = line.split("\n")
-                parse_json_entry(json.loads(linesplit[0]), connection.cursor())
+                entry = json.loads(linesplit[0])
+                parse_json_entry(username, entry, connection.cursor())
                 connection.commit()
                 game_count += 1
                 line = linesplit[1]
