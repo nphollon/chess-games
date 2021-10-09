@@ -2,11 +2,11 @@
 
 This program downloads the games for a player from Lichess and saves them to a MySQL database. The database structure is specific to the individual player (for example, the result of each game is recorded as "win", "loss", or "draw").
 
-I wrote this to help with analysis for my own games. Maybe you will find it useful? Who knows?
+I wrote this to help study my own games. Maybe you will find it useful? Who knows?
 
 There's no front-end (yet?!), so you need to be familiar with MySQL.
 
-## Installation
+## How to use
 
 1. Create a MySQL database. Name it whatever you want! I called mine "chess_games".
 2. Run `db-init.sql` on your database to create the necessary tables. For example, `mysql chess_games < db-init.sql`
