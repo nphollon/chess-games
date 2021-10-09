@@ -2,12 +2,6 @@ import MySQLdb
 import json
 import requests
 
-# TODO
-# 1. Incremental fetch
-# 2. CL interface - clean, init, fetch
-# 3. Front-end??
-
-
 def save_time_format(game_json, cursor):
     speed = game_json["speed"]
     time = game_json["clock"]["initial"]
@@ -43,6 +37,7 @@ def save_opening(opening_json, cursor):
         opening_record = cursor.fetchone()
 
     return opening_record[0]
+
 
 def save_game(player_name, game_json, cursor):
     lichess_id = game_json["id"]
@@ -156,11 +151,9 @@ def fetch_games(username, api_token=None):
     return requests.get(url, params, headers=headers)
 
 
-
 def get_params():
     with open('config.json') as f:
         return json.loads(f.read())
-
 
 
 if __name__ == "__main__":
